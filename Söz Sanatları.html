@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Söz Sanatları Oyunu</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            touch-action: manipulation;
+            background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGQAAABkCAYAAABw4pVUAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAADISURBVHhe7c9BDQAgDMCwkP6nL4L29A90gJ2l7Lw4FwkpISFCSkhIEZISekkBw8G3sZASkhIEZISekkBw8G3sZASkhIEZISekkBw8G3sZASkhIEZISekkBw8G3sZASkhIEZISekkBw8G3sZASkhIEZISekkBw8G3sZASkhIEZISekkBw8G3sZASkhIEZISekkBw8G3sZASkhIEZISekkBw8G3sZASkhIEZISekkBw8G3sZASkhIEZISekkBw8G3sZASkhI0/wDxqgA7859bCAAAAAASUVORK5CYII=');
+        }
+        .btn-option {
+            transition: all 0.2s ease;
+        }
+        .btn-option:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+        .correct {
+            animation: correct-animation 0.5s ease;
+        }
+        .incorrect {
+            animation: incorrect-animation 0.5s ease;
+        }
+        @keyframes correct-animation {
+            0% { background-color: #10B981; transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { background-color: #10B981; transform: scale(1); }
+        }
+        @keyframes incorrect-animation {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-5px); }
+            40%, 80% { transform: translateX(5px); }
+        }
+        .grid-box {
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .grid-box:hover {
+            transform: scale(1.05);
+            box-shadow: 0 8px 20px rgba(96, 104, 113, 0.2);
+        }
+        .grid-box.completed {
+            background-color: #6B7280 !important; /* gray-500 */
+            color: #D1D5DB; /* gray-300 */
+            cursor: not-allowed;
+            transform: scale(0.95);
+            opacity: 0.7;
+        }
+        .grid-box.selected {
+            animation: select-box-animation 0.5s ease-out forwards;
+            z-index: 10;
+            position: relative;
+        }
+        @keyframes select-box-animation {
+            0% {
+                transform: scale(1.05);
+            }
+            50% {
+                transform: scale(1.2);
+                opacity: 0.8;
+            }
+            100% {
+                transform: scale(1.5);
+                opacity: 0;
+            }
+        }
+        .timer-bar {
+            transition: width 1s linear;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 dark:bg-gray-800 flex items-center justify-center min-h-screen p-4">
+
+    <div id="game-container" class="w-full max-w-3xl mx-auto">
+
+        <!-- Başlangıç Ekranı -->
+        <div id="start-screen" class="text-center p-8 bg-white dark:bg-gray-800 rounded-2xl shadow-xl">
+            <h1 class="text-4xl font-bold text-gray-800 dark:text-white mb-4">Söz Sanatları Yarışması</h1>
+            <p class="text-lg text-gray-600 dark:text-gray-300 mb-8">Cümledeki söz sanatını bul, puanları topla. Bakalım ne kadar ustasın?</p>
+            <button id="start-button" class="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-lg text-xl transition-transform transform hover:scale-105">
+                Yarışmaya Başla
+            </button>
+        </div>
+
+        <!-- Kutu Seçim Ekranı -->
+        <div id="grid-screen" class="hidden">
+            <h2 class="text-3xl font-bold text-center text-gray-800 dark:text-white mb-6">Bir Soru Seç</h2>
+            <div id="grid-container" class="grid grid-cols-5 gap-4">
+                <!-- Kutucuklar buraya eklenecek -->
+            </div>
+             <div class="mt-6 text-center text-lg font-semibold text-gray-700 dark:text-gray-200">
+                Skor: <span id="grid-score">0</span>
+             </div>
+             <div class="mt-6 text-center">
+                <button id="end-game-button" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-6 rounded-lg transition-transform transform hover:scale-105">
+                    Yarışmayı Bitir
+                </button>
+             </div>
+        </div>
+
+        <!-- Soru Ekranı -->
+        <div id="question-screen" class="hidden">
+            <div class="flex justify-between items-center mb-2">
+                <div class="text-lg font-semibold text-gray-700 dark:text-gray-200">
+                    Skor: <span id="question-score">0</span>
+                </div>
+                <div id="timer-container" class="text-lg font-bold text-indigo-600 dark:text-indigo-400">
+                    Kalan Süre: <span id="timer">40</span>s
+                </div>
+            </div>
+            <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5 mb-4">
+                <div id="timer-bar" class="bg-indigo-600 h-2.5 rounded-full" style="width: 100%"></div>
+            </div>
+
+            <div id="question-card" class="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-lg mb-6 text-center min-h-[150px] flex items-center justify-center">
+                <p id="question-text" class="text-2xl font-medium text-gray-800 dark:text-white"></p>
+            </div>
+
+            <div id="options-container" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <!-- Seçenekler buraya eklenecek -->
+            </div>
+             <div id="feedback-container" class="mt-4 text-center h-8">
+                 <p id="feedback-text" class="text-xl font-bold"></p>
+             </div>
+        </div>
+
+        <!-- Bitiş Ekranı -->
+        <div id="end-screen" class="hidden text-center p-8 bg-white dark:bg-gray-800 rounded-2xl shadow-xl">
+            <h2 id="end-title" class="text-3xl font-bold text-gray-800 dark:text-white mb-2">Yarışma Bitti!</h2>
+            <p id="end-message" class="text-xl text-gray-600 dark:text-gray-300 mb-6">Tebrikler, tüm soruları cevapladın!</p>
+            <div class="mb-6">
+                <span class="text-lg text-gray-500 dark:text-gray-400">Toplam Skorun</span>
+                <p id="final-score" class="text-6xl font-bold text-indigo-600 dark:text-indigo-400"></p>
+            </div>
+            <button id="restart-button" class="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-lg text-xl transition-transform transform hover:scale-105">
+                Yeniden Oyna
+            </button>
+        </div>
+
+    </div>
+
+    <script>
+        const questions = [
+            { question: "Güneş, odaya neşeyle gülümsüyordu.", answer: "Kişileştirme" },
+            { question: "Aslan gibi cesur bir çocuktu.", answer: "Benzetme" },
+            { question: "Bir ah çeksem dağı taşı eritir.", answer: "Abartma" },
+            { question: "Kalem, kağıda acı dolu sözler fısıldadı.", answer: "Konuşturma" },
+            { question: "Sıcak ve soğuk bakışlarıyla herkesi şaşırttı.", answer: "Tezat" },
+            { question: "O kadar zayıf ki rüzgar esse uçacak.", answer: "Abartma" },
+            { question: "Kurnaz tilki, 'Beni asla yakalayamazsın!' dedi.", answer: "Konuşturma" },
+            { question: "Bulutlar, gökyüzünde pamuk tarlaları gibiydi.", answer: "Benzetme" },
+            { question: "Rüzgar, sinirle ağaçların dallarını kırıyordu.", answer: "Kişileştirme" },
+            { question: "Ağlarım hatıra geldikçe gülüştüklerimiz.", answer: "Tezat" },
+            { question: "Karınca, fili tek hamlede sırtına aldı.", answer: "Abartma" },
+            { question: "Ay, utangaç bir gelin gibi bulutların arkasına saklandı.", answer: "Kişileştirme" },
+            { question: "Sözleri, keskin bir bıçak gibi kalbime saplandı.", answer: "Benzetme" },
+            { question: "Bülbül, 'En güzel şarkıyı ben söylerim.' diye öttü.", answer: "Konuşturma" },
+            { question: "İyi ve kötü günler hep bir aradadır.", answer: "Tezat" },
+            { question: "Gözyaşlarım sel oldu, aktı.", answer: "Abartma" },
+            { question: "Kömür gözleriyle bana bakıyordu.", answer: "Benzetme" },
+            { question: "Kederli bulutlar, bütün gün ağladı.", answer: "Kişileştirme" },
+            { question: "Gecenin karanlığı ve ayın aydınlığı birleşti.", answer: "Tezat" },
+            { question: "Saat, 'Geç kalıyorsun!' diye tik taklıyordu.", answer: "Konuşturma" }
+        ];
+
+        const allOptions = ["Benzetme", "Kişileştirme", "Abartma", "Konuşturma", "Tezat"];
+
+        // Ekranlar
+        const startScreen = document.getElementById('start-screen');
+        const gridScreen = document.getElementById('grid-screen');
+        const questionScreen = document.getElementById('question-screen');
+        const endScreen = document.getElementById('end-screen');
+        
+        // Butonlar
+        const startButton = document.getElementById('start-button');
+        const restartButton = document.getElementById('restart-button');
+        const endGameButton = document.getElementById('end-game-button');
+        
+        // Elementler
+        const gridContainer = document.getElementById('grid-container');
+        const questionText = document.getElementById('question-text');
+        const optionsContainer = document.getElementById('options-container');
+        const feedbackText = document.getElementById('feedback-text');
+        const timerEl = document.getElementById('timer');
+        const timerBar = document.getElementById('timer-bar');
+        
+        // Skor Elementleri
+        const gridScoreEl = document.getElementById('grid-score');
+        const questionScoreEl = document.getElementById('question-score');
+        const finalScoreEl = document.getElementById('final-score');
+
+        // Oyun Değişkenleri
+        let shuffledQuestions, score, answeredQuestions, currentQuestionIndex, timerInterval, timeLeft;
+        const TOTAL_QUESTIONS = 20;
+        const TIME_LIMIT = 40;
+
+        // --- Ses Efektleri ---
+        let soundsReady = false;
+        let tickSound, gongSound, correctSound, incorrectSound, selectSound;
+        
+        function setupSounds() {
+            if (soundsReady) return;
+            // Geri sayım sesi
+            tickSound = new Tone.Synth({ 
+                volume: -15, // Ses seviyesi azaltıldı
+                oscillator: { type: 'sine' }, 
+                envelope: { attack: 0.001, decay: 0.1, sustain: 0, release: 0.1 } 
+            }).toDestination();
+            // Süre bitiş sesi
+            gongSound = new Tone.MembraneSynth({ pitchDecay: 0.05, octaves: 10, oscillator: { type: 'sine' }, envelope: { attack: 0.001, decay: 0.4, sustain: 0.01, release: 1.4, attackCurve: 'exponential' } }).toDestination();
+            // Doğru cevap sesi (alkış simülasyonu)
+            correctSound = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.2, decay: 1.5, sustain: 0, release: 0.5 } }).toDestination();
+            // Yanlış cevap sesi
+            incorrectSound = new Tone.Synth({ oscillator: { type: 'square' }, envelope: { attack: 0.01, decay: 0.2, sustain: 0, release: 0.2 } }).toDestination();
+            // Soru seçim sesi
+            selectSound = new Tone.MonoSynth({
+                volume: -10,
+                oscillator: { type: "sine" },
+                envelope: { attack: 0.01, decay: 0.2, sustain: 0.1, release: 0.5 },
+                filterEnvelope: { attack: 0.05, decay: 0.1, sustain: 0.05, release: 0.2, baseFrequency: 200, octaves: 4 }
+            }).toDestination();
+            soundsReady = true;
+        }
+
+        startButton.addEventListener('click', async () => {
+            await Tone.start();
+            console.log('Audio context started');
+            setupSounds();
+            startGame();
+        });
+        restartButton.addEventListener('click', startGame);
+        endGameButton.addEventListener('click', () => showEndScreen(false));
+
+        function startGame() {
+            startScreen.classList.add('hidden');
+            questionScreen.classList.add('hidden');
+            endScreen.classList.add('hidden');
+            gridScreen.classList.remove('hidden');
+
+            shuffledQuestions = questions.sort(() => Math.random() - 0.5).slice(0, TOTAL_QUESTIONS);
+            answeredQuestions = [];
+            score = 0;
+            
+            updateScores();
+            createGrid();
+        }
+
+        function createGrid() {
+            gridContainer.innerHTML = '';
+            for (let i = 0; i < TOTAL_QUESTIONS; i++) {
+                const box = document.createElement('div');
+                box.classList.add('grid-box', 'flex', 'items-center', 'justify-center', 'h-24', 'bg-indigo-500', 'text-white', 'text-3xl', 'font-bold', 'rounded-lg', 'shadow-md');
+                box.textContent = i + 1;
+                box.dataset.questionIndex = i;
+                box.addEventListener('click', selectBox);
+                gridContainer.appendChild(box);
+            }
+        }
+
+        function selectBox(e) {
+            const selectedBox = e.target;
+            if (selectedBox.classList.contains('completed')) return;
+
+            if (soundsReady) selectSound.triggerAttackRelease("C3", "8n"); // Efekt sesi eklendi
+
+            selectedBox.classList.add('selected');
+
+            setTimeout(() => {
+                currentQuestionIndex = parseInt(selectedBox.dataset.questionIndex);
+                gridScreen.classList.add('hidden');
+                questionScreen.classList.remove('hidden');
+                
+                showQuestion(shuffledQuestions[currentQuestionIndex]);
+                startTimer();
+                selectedBox.classList.remove('selected');
+            }, 500); // Animasyon süresiyle eşleşiyor
+        }
+
+        function startTimer() {
+            timeLeft = TIME_LIMIT;
+            timerEl.textContent = timeLeft;
+            timerBar.style.width = '100%';
+            
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                timerEl.textContent = timeLeft;
+                timerBar.style.width = `${(timeLeft / TIME_LIMIT) * 100}%`;
+                
+                if(soundsReady) tickSound.triggerAttackRelease('A5', '32n');
+
+                if (timeLeft <= 0) {
+                   handleTimeout();
+                }
+            }, 1000);
+        }
+        
+        function stopTimer() {
+            clearInterval(timerInterval);
+        }
+
+        function handleTimeout() {
+            stopTimer();
+            if(soundsReady) gongSound.triggerAttackRelease("C2", "1n");
+            feedbackText.textContent = "Süre Doldu!";
+            feedbackText.classList.add('text-red-500');
+            Array.from(optionsContainer.children).forEach(button => {
+                button.disabled = true;
+            });
+
+            setTimeout(() => returnToGrid(false), 2000);
+        }
+
+        function showQuestion(questionData) {
+            resetQuestionState();
+            questionText.innerHTML = questionData.question;
+            const correctAnswer = questionData.answer;
+            let options = [correctAnswer];
+            let otherOptions = allOptions.filter(opt => opt !== correctAnswer);
+            otherOptions.sort(() => Math.random() - 0.5);
+            options.push(...otherOptions.slice(0, 3));
+            options.sort(() => Math.random() - 0.5);
+
+            options.forEach(option => {
+                const button = document.createElement('button');
+                button.innerText = option;
+                button.classList.add('btn-option', 'w-full', 'p-4', 'text-lg', 'font-semibold', 'bg-white', 'dark:bg-gray-700', 'dark:text-white', 'text-gray-700', 'rounded-lg', 'shadow-md');
+                button.addEventListener('click', selectAnswer);
+                optionsContainer.appendChild(button);
+            });
+        }
+        
+        function resetQuestionState() {
+            feedbackText.textContent = '';
+            feedbackText.classList.remove('text-green-500', 'text-red-500');
+            while (optionsContainer.firstChild) {
+                optionsContainer.removeChild(optionsContainer.firstChild);
+            }
+        }
+        
+        function updateScores() {
+            gridScoreEl.textContent = score;
+            questionScoreEl.textContent = score;
+            finalScoreEl.textContent = score;
+        }
+
+        function selectAnswer(e) {
+            stopTimer();
+            const selectedButton = e.target;
+            const correctAnswer = shuffledQuestions[currentQuestionIndex].answer;
+            const isCorrect = selectedButton.innerText === correctAnswer;
+
+            Array.from(optionsContainer.children).forEach(button => button.disabled = true);
+            
+            if (isCorrect) {
+                score++;
+                updateScores();
+                if(soundsReady) correctSound.triggerAttackRelease("2s");
+                selectedButton.classList.add('correct', 'bg-green-500', 'text-white');
+                feedbackText.textContent = "Doğru!";
+                feedbackText.classList.add('text-green-500');
+                setTimeout(() => returnToGrid(true), 2000);
+            } else {
+                if(soundsReady) incorrectSound.triggerAttackRelease('A2', '16n');
+                selectedButton.classList.add('incorrect', 'bg-red-500', 'text-white');
+                feedbackText.textContent = "Yanlış!";
+                feedbackText.classList.add('text-red-500');
+                setTimeout(() => returnToGrid(false), 2000);
+            }
+        }
+
+        function returnToGrid(wasCorrect) {
+            questionScreen.classList.add('hidden');
+            
+            const currentBox = gridContainer.querySelector(`[data-question-index='${currentQuestionIndex}']`);
+
+            if (wasCorrect) {
+                currentBox.classList.add('completed');
+                answeredQuestions.push(currentQuestionIndex);
+            } else {
+                // Yanlış cevapta sorunun yerini değiştir
+                const allBoxes = Array.from(gridContainer.children);
+                const availableBoxes = allBoxes.filter(box => 
+                    !box.classList.contains('completed') && 
+                    parseInt(box.dataset.questionIndex) !== currentQuestionIndex
+                );
+                
+                if (availableBoxes.length > 0) {
+                    const swapBox = availableBoxes[Math.floor(Math.random() * availableBoxes.length)];
+                    const swapIndex = parseInt(swapBox.dataset.questionIndex);
+
+                    // Soruları dizide takas et
+                    const tempQuestion = shuffledQuestions[currentQuestionIndex];
+                    shuffledQuestions[currentQuestionIndex] = shuffledQuestions[swapIndex];
+                    shuffledQuestions[swapIndex] = tempQuestion;
+                }
+            }
+
+            if (answeredQuestions.length === TOTAL_QUESTIONS) {
+                showEndScreen(true);
+            } else {
+                gridScreen.classList.remove('hidden');
+            }
+        }
+
+        function showEndScreen(completed = false) {
+            gridScreen.classList.add('hidden');
+            questionScreen.classList.add('hidden');
+            endScreen.classList.remove('hidden');
+            
+            const endTitle = document.getElementById('end-title');
+            const endMessage = document.getElementById('end-message');
+
+            if (completed || answeredQuestions.length === TOTAL_QUESTIONS) {
+                endTitle.textContent = "Yarışma Bitti!";
+                endMessage.textContent = "Tebrikler, tüm soruları cevapladın!";
+            } else {
+                endTitle.textContent = "Yarışmayı Bitirdin";
+                endMessage.textContent = `Toplam ${TOTAL_QUESTIONS} sorudan ${answeredQuestions.length} tanesini tamamladın.`;
+            }
+
+            finalScoreEl.textContent = score;
+        }
+    </script>
+</body>
+</html>
+
